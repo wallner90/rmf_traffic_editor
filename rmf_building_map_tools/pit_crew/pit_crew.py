@@ -828,44 +828,45 @@ def build_and_update_cache(cache_file_path=None, write_to_cache=True,
             old_cache = {'model_cache': set(), 'fuel_cache': []}
             logger.info("Cache not found! Rebuilding cache...")
 
-    url_base = "https://fuel.gazebosim.org/1.0/models"
-    status = 200
-    break_flag = False
-    page = 1
+    url_bases = ["https://fuel.gazebosim.org/1.0/OpenRobotics/models", "https://fuel.gazebosim.org/1.0/models"]
     new_cache_count = 0
 
-    logger.info("Topping up Fuel (updating cache) from:"
-                " https://fuel.gazebosim.org/1.0/models")
+    for url_base in url_bases:
+        page = 1
+        status = 200
+        break_flag = False
+        logger.info("Topping up Fuel (updating cache) from:"
+                    " https://fuel.gazebosim.org/1.0/models")
 
-    # RFE: Doing this asynchronously will significantly speed this up.
-    # Any solution must guarantee:
-    #   - All new models are guaranteed to be added to the cache
-    #   - Loop breaks as soon as we start pulling up already cached models
-    while status == 200 and not break_flag:
-        logger.info("Fetching page: %d" % page)
+        # RFE: Doing this asynchronously will significantly speed this up.
+        # Any solution must guarantee:
+        #   - All new models are guaranteed to be added to the cache
+        #   - Loop breaks as soon as we start pulling up already cached models
+        while status == 200 and not break_flag:
+            logger.info("Fetching page: %d" % page)
 
-        resp = requests.get("%s?page=%d&per_page=100" % (url_base, page))
-        status = resp.status_code
-        page += 1
+            resp = requests.get("%s?page=%d&per_page=100" % (url_base, page))
+            status = resp.status_code
+            page += 1
 
-        if status == 200:
-            for model in json.loads(resp.text):
-                model_name = model.get("name", "")
-                author_name = model.get("owner", "")
+            if status == 200:
+                for model in json.loads(resp.text):
+                    model_name = model.get("name", "")
+                    author_name = model.get("owner", "")
 
-                # If a cached model was found, halt
-                if (model_name, author_name) in old_cache['model_cache']:
-                    logger.info("Cached model found! "
-                                "Halting Fuel traversal...")
-                    break_flag = True
-                    break
-                # Otherwise, add it to the cache
-                else:
-                    new_cache_count += 1
-                    old_cache['model_cache'].add((model_name, author_name))
-                    old_cache['fuel_cache'].append(model)
-        else:
-            break
+                    # If a cached model was found, halt
+                    if (model_name, author_name) in old_cache['model_cache']:
+                        logger.info("Cached model found! "
+                                    "Halting Fuel traversal...")
+                        break_flag = True
+                        break
+                    # Otherwise, add it to the cache
+                    else:
+                        new_cache_count += 1
+                        old_cache['model_cache'].add((model_name, author_name))
+                        old_cache['fuel_cache'].append(model)
+            else:
+                break
 
     # Listify model_cache to allow for JSON serialisation
     old_cache['model_cache'] = list(old_cache['model_cache'])
